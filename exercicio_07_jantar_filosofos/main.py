@@ -4,11 +4,13 @@ import random
 import argparse
 
 class Philosopher(threading.Thread):
-    def __init__(self, id, left_fork, right_fork, solution_type, dining_room=None):
+    def __init__(self, id, left_fork, right_fork, left_fork_id, right_fork_id, solution_type, dining_room=None):
         super().__init__()
         self.id = id
         self.left_fork = left_fork
         self.right_fork = right_fork
+        self.left_fork_id = left_fork_id
+        self.right_fork_id = right_fork_id
         self.solution_type = solution_type
         self.dining_room = dining_room 
         self.meals_eaten = 0
@@ -24,21 +26,27 @@ class Philosopher(threading.Thread):
             elif self.solution_type == 'semaphore':
                 self.pickup_forks_semaphore()
             
-            print(f"Filósofo {self.id} está comendo.")
+            print(f"Filósofo {self.id} está comendo com os garfos {self.left_fork_id} e {self.right_fork_id}.")
             time.sleep(random.uniform(1, 2))
             self.meals_eaten += 1
             
             self.putdown_forks()
 
     def pickup_forks_ordered(self):
-        first_fork, second_fork = sorted([self.left_fork, self.right_fork], key=id)
-        
-        print(f"Filósofo {self.id} tentando pegar o garfo {first_fork.id}.")
+        if self.left_fork_id < self.right_fork_id:
+            first_fork, first_fork_id = self.left_fork, self.left_fork_id
+            second_fork, second_fork_id = self.right_fork, self.right_fork_id
+        else:
+            first_fork, first_fork_id = self.right_fork, self.right_fork_id
+            second_fork, second_fork_id = self.left_fork, self.left_fork_id
+
+        print(f"Filósofo {self.id} tentando pegar o garfo {first_fork_id}.")
         first_fork.acquire()
-        print(f"Filósofo {self.id} pegou o garfo {first_fork.id}.")
-        print(f"Filósofo {self.id} tentando pegar o garfo {second_fork.id}.")
+        print(f"Filósofo {self.id} pegou o garfo {first_fork_id}.")
+        
+        print(f"Filósofo {self.id} tentando pegar o garfo {second_fork_id}.")
         second_fork.acquire()
-        print(f"Filósofo {self.id} pegou o garfo {second_fork.id}.")
+        print(f"Filósofo {self.id} pegou o garfo {second_fork_id}.")
 
     def pickup_forks_semaphore(self):
         print(f"Filósofo {self.id} tentando entrar na sala de jantar.")
@@ -46,14 +54,14 @@ class Philosopher(threading.Thread):
         print(f"Filósofo {self.id} entrou na sala de jantar.")
         
         self.left_fork.acquire()
-        print(f"Filósofo {self.id} pegou o garfo esquerdo ({self.left_fork.id}).")
+        print(f"Filósofo {self.id} pegou o garfo esquerdo ({self.left_fork_id}).")
         self.right_fork.acquire()
-        print(f"Filósofo {self.id} pegou o garfo direito ({self.right_fork.id}).")
+        print(f"Filósofo {self.id} pegou o garfo direito ({self.right_fork_id}).")
 
     def putdown_forks(self):
         self.left_fork.release()
         self.right_fork.release()
-        print(f"Filósofo {self.id} largou os garfos.")
+        print(f"Filósofo {self.id} largou os garfos {self.left_fork_id} e {self.right_fork_id}.")
         if self.solution_type == 'semaphore':
             self.dining_room.release()
             print(f"Filósofo {self.id} saiu da sala de jantar.")
@@ -66,7 +74,6 @@ def main():
 
     num_philosophers = 5
     forks = [threading.Lock() for _ in range(num_philosophers)]
-    for i, fork in enumerate(forks): fork.id = i 
     
     philosophers = []
     dining_room = None
@@ -74,9 +81,12 @@ def main():
         dining_room = threading.Semaphore(num_philosophers - 1)
 
     for i in range(num_philosophers):
-        left_fork = forks[i]
-        right_fork = forks[(i + 1) % num_philosophers]
-        p = Philosopher(i, left_fork, right_fork, args.solution, dining_room)
+        left_fork_id = i
+        right_fork_id = (i + 1) % num_philosophers
+        left_fork = forks[left_fork_id]
+        right_fork = forks[right_fork_id]
+        
+        p = Philosopher(i, left_fork, right_fork, left_fork_id, right_fork_id, args.solution, dining_room)
         philosophers.append(p)
         p.start()
 
